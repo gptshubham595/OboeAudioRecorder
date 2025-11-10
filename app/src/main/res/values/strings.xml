@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">OboeSample</string>
+    <string name="status_ready">Ready</string>
+    <string name="status_recording">Recording: %s</string>
+    <string name="status_playing">Playing: %s</string>
+    <string name="button_record">Record</string>
+    <string name="button_stop">Stop</string>
+    <string name="button_play">Play</string>
+</resources>
