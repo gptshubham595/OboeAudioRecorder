@@ -55,6 +55,45 @@ oboe::Result AudioPlayer::startPlayback(const std::vector<int16_t>& data) {
     return result;
 }
 
+oboe::Result AudioPlayer::startPlaybackFromFile(const char* path) {
+
+    // 1. Open the file stream for reading
+    mAudioFile.open(path, std::ios::in | std::ios::binary);
+    if (!mAudioFile.is_open()) {
+        LOGE("Failed to open file for playback: %s", path);
+        return oboe::Result::ErrorInternal;
+    }
+    LOGD("Playback file opened successfully: %s", path);
+
+    // 2. Configure and open the Oboe stream
+    oboe::AudioStreamBuilder builder;
+    builder.setDirection(oboe::Direction::Output)
+            ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+            ->setSharingMode(oboe::SharingMode::Exclusive)
+            ->setFormat(oboe::AudioFormat::I16)
+            ->setChannelCount(mChannelCount)
+            ->setSampleRate(mSampleRate)
+            ->setDataCallback(this);
+
+    oboe::Result result = builder.openStream(mPlaybackStream);
+    if (result != oboe::Result::OK) {
+        LOGE("Failed to open playback stream: %s", oboe::convertToText(result));
+        mAudioFile.close();
+        return result;
+    }
+
+    mSampleRate = mPlaybackStream->getSampleRate();
+
+    result = mPlaybackStream->requestStart();
+    if (result != oboe::Result::OK) {
+        LOGE("Failed to start playback stream: %s", oboe::convertToText(result));
+        mAudioFile.close();
+    } else {
+        LOGD("Playback started successfully. Reading from file.");
+    }
+    return result;
+}
+
 void AudioPlayer::stopPlayback() {
     if (mPlaybackStream && mPlaybackStream->getState() != oboe::StreamState::Stopped) {
         mPlaybackStream->requestStop();
@@ -62,33 +101,47 @@ void AudioPlayer::stopPlayback() {
         mPlaybackStream.reset();
         LOGD("Playback stopped.");
     }
+
+    // Close the file stream
+    if (mAudioFile.is_open()) {
+        mAudioFile.close();
+        LOGD("Audio playback file closed.");
+    }
 }
 
 oboe::DataCallbackResult AudioPlayer::onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int32_t numFrames) {
     auto *outputData = static_cast<int16_t *>(audioData);
     size_t numSamples = numFrames * oboeStream->getChannelCount();
+    size_t numBytes = numSamples * sizeof(int16_t);
 
-    // Calculate how many samples we can actually write
-    int64_t samplesRemaining = mPlaybackBuffer.size() - mReadIndex;
-    int32_t samplesToWrite = std::min((int32_t)numSamples, (int32_t)samplesRemaining);
+    if (mAudioFile.is_open()) {
+        // Read the requested number of bytes from the file directly into the output buffer
+        mAudioFile.read(static_cast<char *>(audioData), numBytes);
 
-    if (samplesToWrite > 0) {
-        // Copy data from our buffer to the output buffer
-        memcpy(outputData, mPlaybackBuffer.data() + mReadIndex, samplesToWrite * sizeof(int16_t));
-        mReadIndex += samplesToWrite;
-    }
+        // Get the number of bytes actually read (in case we hit EOF)
+        size_t bytesRead = mAudioFile.gcount();
+        size_t samplesRead = bytesRead / sizeof(int16_t);
 
-    // Fill the rest of the buffer with silence if we ran out of data
-    if (samplesToWrite < numSamples) {
-        int32_t silenceSamples = numSamples - samplesToWrite;
-        memset(outputData + samplesToWrite, 0, silenceSamples * sizeof(int16_t));
-    }
+        // Check if we hit the end of the file
+        if (mAudioFile.eof()) {
+            LOGD("Reached end of file during playback.");
 
-    // If we've reached the end of the buffer, stop playback
-    if (mReadIndex >= mPlaybackBuffer.size()) {
-        LOGD("Playback complete.");
+            // Fill any remaining space in the buffer with silence (0s)
+            size_t silenceSamples = numSamples - samplesRead;
+            if (silenceSamples > 0) {
+                memset(outputData + samplesRead, 0, silenceSamples * sizeof(int16_t));
+            }
+
+            // Stop the playback stream
+            return oboe::DataCallbackResult::Stop;
+        }
+
+        // If we read the exact amount, continue
+        return oboe::DataCallbackResult::Continue;
+
+    } else {
+        LOGE("Audio file is not open for playback, outputting silence.");
+        memset(outputData, 0, numBytes);
         return oboe::DataCallbackResult::Stop;
     }
-
-    return oboe::DataCallbackResult::Continue;
 }

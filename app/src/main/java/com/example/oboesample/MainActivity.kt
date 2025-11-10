@@ -10,10 +10,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.oboesample.databinding.ActivityMainBinding
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+
+    private val RECORDING_FILE_NAME = "recording.pcm"
     private val RECORD_AUDIO_PERMISSION_REQUEST_CODE = 101
 
     // Timer logic
@@ -37,6 +40,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        val recordingFilePath = filesDir.absolutePath + File.separator + RECORDING_FILE_NAME
+        AudioEngine.setRecordingPath(recordingFilePath)
+
         // Request permissions if not granted
         checkAndRequestPermissions()
 
@@ -49,10 +55,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         binding.recordButton.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
                 startRecording()
             } else {
-                Toast.makeText(this, "Permission required to record audio.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Permission required to record audio.", Toast.LENGTH_SHORT)
+                    .show()
                 checkAndRequestPermissions()
             }
         }
@@ -71,7 +82,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkAndRequestPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.RECORD_AUDIO),
@@ -80,13 +95,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == RECORD_AUDIO_PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Record permission granted!", Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this, "Record permission denied. Cannot record audio.", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this,
+                    "Record permission denied. Cannot record audio.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
@@ -125,6 +148,7 @@ class MainActivity : AppCompatActivity() {
                 binding.playButton.isEnabled = false
                 binding.stopPlayButton.isEnabled = false
             }
+
             State.RECORDING -> {
                 startTimer()
                 binding.recordButton.isEnabled = false
@@ -132,6 +156,7 @@ class MainActivity : AppCompatActivity() {
                 binding.playButton.isEnabled = false
                 binding.stopPlayButton.isEnabled = false
             }
+
             State.RECORDED -> {
                 stopTimer()
                 // Update status to show the length of the recording
@@ -141,6 +166,7 @@ class MainActivity : AppCompatActivity() {
                 binding.playButton.isEnabled = true // Playback is possible now
                 binding.stopPlayButton.isEnabled = false
             }
+
             State.PLAYING -> {
                 startTimer()
                 binding.recordButton.isEnabled = false

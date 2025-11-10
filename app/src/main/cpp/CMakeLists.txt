@@ -23,7 +23,7 @@ target_link_options(native-lib PRIVATE "-Wl,-z,max-page-size=16384")
 
 
 # Find the Oboe package
-find_package (oboe REQUIRED CONFIG)
+find_package(oboe REQUIRED CONFIG)
 
 # Specify the libraries which our native library is dependent on, including Oboe
 target_link_libraries(native-lib log oboe::oboe)
