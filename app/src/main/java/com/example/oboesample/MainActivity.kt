@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.widget.SeekBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -18,6 +19,10 @@ class MainActivity : AppCompatActivity() {
 
     private val RECORDING_FILE_NAME = "recording.pcm"
     private val RECORD_AUDIO_PERMISSION_REQUEST_CODE = 101
+
+    // Filter parameters
+    private var currentFrequency = 1000f
+    private var currentQ = 1.0f
 
     // Timer logic
     private val handler = Handler(Looper.getMainLooper())
@@ -42,6 +47,10 @@ class MainActivity : AppCompatActivity() {
 
         val recordingFilePath = filesDir.absolutePath + File.separator + RECORDING_FILE_NAME
         AudioEngine.setRecordingPath(recordingFilePath)
+        // Configure filter once at startup
+        AudioEngine.configureBandpassFilter(1000f, 1.0f)
+        AudioEngine.setFilterEnabled(true) // Enable it permanently
+
 
         // Request permissions if not granted
         checkAndRequestPermissions()
@@ -79,6 +88,51 @@ class MainActivity : AppCompatActivity() {
         binding.stopPlayButton.setOnClickListener {
             stopPlayback()
         }
+
+        binding.filterSwitch.setOnCheckedChangeListener { _, isChecked ->
+            AudioEngine.setFilterEnabled(isChecked)
+            binding.frequencySeekBar.isEnabled = isChecked
+            binding.qSeekBar.isEnabled = isChecked
+
+            val message = if (isChecked) {
+                "Filter enabled: ${currentFrequency.toInt()} Hz, Q=${String.format("%.1f", currentQ)}"
+            } else {
+                "Filter disabled"
+            }
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
+
+        // Frequency SeekBar (300 Hz to 3000 Hz)
+        binding.frequencySeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                // Map 0-100 to 300-3000 Hz
+                currentFrequency = 300f + (progress * 27f)
+                updateFilterConfiguration()
+                binding.frequencyLabel.text = "Center Frequency: ${currentFrequency.toInt()} Hz"
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        // Q Factor SeekBar (0.5 to 5.0)
+        binding.qSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                // Map 0-45 to 0.5-5.0
+                currentQ = (progress / 10f) + 0.5f
+                updateFilterConfiguration()
+                binding.qLabel.text = "Q Factor: ${String.format("%.1f", currentQ)}"
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+    }
+
+    private fun updateFilterConfiguration() {
+        if (binding.filterSwitch.isChecked) {
+            AudioEngine.configureBandpassFilter(currentFrequency, currentQ)
+        }
     }
 
     private fun checkAndRequestPermissions() {
@@ -115,6 +169,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startRecording() {
+        AudioEngine.setFilterEnabled(true)
+        AudioEngine.configureBandpassFilter(1000f, 1.0f) // 1000 Hz center, Q=1.0
+
         AudioEngine.startRecording()
         setUiState(State.RECORDING)
     }

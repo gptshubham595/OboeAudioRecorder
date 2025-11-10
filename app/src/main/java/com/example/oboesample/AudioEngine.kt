@@ -10,4 +10,7 @@ object AudioEngine {
     external fun stopRecording()
     external fun playRecording()
     external fun stopPlayback()
+
+    external fun setFilterEnabled(enabled: Boolean)
+    external fun configureBandpassFilter(centerFreq: Float, Q: Float)
 }

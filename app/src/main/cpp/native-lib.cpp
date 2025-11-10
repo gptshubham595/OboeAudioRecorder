@@ -12,7 +12,8 @@ static AudioRecorder sRecorder;
 static AudioPlayer sPlayer;
 static std::string sCurrentRecordingPath; // Store the file path globally
 
-extern "C" JNIEXPORT void JNICALL
+extern "C" {
+JNIEXPORT void JNICALL
 Java_com_example_oboesample_AudioEngine_setRecordingPath(JNIEnv *env, jobject, jstring path) {
     const char *pathPtr = env->GetStringUTFChars(path, nullptr);
     sCurrentRecordingPath = pathPtr;
@@ -20,17 +21,17 @@ Java_com_example_oboesample_AudioEngine_setRecordingPath(JNIEnv *env, jobject, j
     env->ReleaseStringUTFChars(path, pathPtr);
 }
 
-extern "C" JNIEXPORT void JNICALL
+JNIEXPORT void JNICALL
 Java_com_example_oboesample_AudioEngine_startRecording(JNIEnv *env, jobject) {
     sRecorder.startRecording();
 }
 
-extern "C" JNIEXPORT void JNICALL
+JNIEXPORT void JNICALL
 Java_com_example_oboesample_AudioEngine_stopRecording(JNIEnv *env, jobject) {
     sRecorder.stopRecording();
 }
 
-extern "C" JNIEXPORT void JNICALL
+JNIEXPORT void JNICALL
 Java_com_example_oboesample_AudioEngine_playRecording(JNIEnv *env, jobject) {
 // Pass the file path to the player instead of recorded data
     if (!sCurrentRecordingPath.empty()) {
@@ -40,7 +41,19 @@ Java_com_example_oboesample_AudioEngine_playRecording(JNIEnv *env, jobject) {
     }
 }
 
-extern "C" JNIEXPORT void JNICALL
+JNIEXPORT void JNICALL
 Java_com_example_oboesample_AudioEngine_stopPlayback(JNIEnv *env, jobject) {
     sPlayer.stopPlayback();
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_oboesample_AudioEngine_setFilterEnabled(JNIEnv *env, jobject, jboolean enabled) {
+    sRecorder.setFilterEnabled(enabled);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_oboesample_AudioEngine_configureBandpassFilter(JNIEnv *env, jobject,
+                                                                jfloat centerFreq, jfloat Q) {
+    sRecorder.configureBandpassFilter(centerFreq, Q);
+}
 }

@@ -7,90 +7,234 @@
     android:padding="16dp"
     tools:context=".MainActivity">
 
+    <!-- Status Display -->
     <TextView
         android:id="@+id/statusTextView"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="32dp"
         android:text="@string/status_ready"
         android:textAlignment="center"
         android:textSize="24sp"
         android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@+id/recordButton"
+        android:layout_marginTop="32dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_chainStyle="packed" />
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/recordButton"
-        style="@style/Widget.Material3.Button.Icon"
+    <!-- Recording Controls Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/recordingCard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
-        android:backgroundTint="@color/design_default_color_error"
-        android:text="@string/button_record"
-        app:icon="@drawable/baseline_mic_24"
-        app:iconGravity="textStart"
-        app:layout_constraintBottom_toTopOf="@+id/playButton"
-        app:layout_constraintEnd_toStartOf="@+id/stopRecordButton"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/statusTextView" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/stopRecordButton"
-        style="@style/Widget.Material3.Button.Icon"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:enabled="false"
-        android:text="@string/button_stop"
-        app:icon="@android:drawable/ic_media_pause"
-        app:iconGravity="textStart"
-        app:layout_constraintBottom_toBottomOf="@+id/recordButton"
+        android:layout_marginTop="32dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/recordButton"
-        app:layout_constraintTop_toTopOf="@+id/recordButton" />
-
-    <View
-        android:id="@+id/divider"
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="24dp"
-        android:background="?android:attr/listDivider"
-        app:layout_constraintBottom_toTopOf="@id/playButton"
-        app:layout_constraintTop_toBottomOf="@id/recordButton" />
-
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/playButton"
-        style="@style/Widget.Material3.Button.Icon"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
-        android:enabled="false"
-        android:text="@string/button_play"
-        app:icon="@android:drawable/ic_media_play"
-        app:iconGravity="textStart"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/stopPlayButton"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/divider" />
+        app:layout_constraintTop_toBottomOf="@id/statusTextView">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/stopPlayButton"
-        style="@style/Widget.Material3.Button.Icon"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Recording"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <Button
+                    android:id="@+id/recordButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:text="Record"
+                    android:textAllCaps="false"
+                    style="@style/Widget.Material3.Button.ElevatedButton" />
+
+                <Button
+                    android:id="@+id/stopRecordButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="Stop"
+                    android:textAllCaps="false"
+                    android:enabled="false"
+                    style="@style/Widget.Material3.Button.OutlinedButton" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Playback Controls Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/playbackCard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:enabled="false"
-        android:text="@string/button_stop"
-        app:icon="@android:drawable/ic_media_pause"
-        app:iconGravity="textStart"
-        app:layout_constraintBottom_toBottomOf="@+id/playButton"
+        android:layout_marginTop="16dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/playButton"
-        app:layout_constraintTop_toTopOf="@+id/playButton" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/recordingCard">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Playback"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <Button
+                    android:id="@+id/playButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:text="Play"
+                    android:textAllCaps="false"
+                    android:enabled="false"
+                    style="@style/Widget.Material3.Button.ElevatedButton" />
+
+                <Button
+                    android:id="@+id/stopPlayButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="Stop"
+                    android:textAllCaps="false"
+                    android:enabled="false"
+                    style="@style/Widget.Material3.Button.OutlinedButton" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Filter Controls Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/filterCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/playbackCard">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Voice Filter"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/filterSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="false" />
+
+            </LinearLayout>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp"
+                android:background="?android:attr/listDivider" />
+
+            <!-- Frequency Control -->
+            <TextView
+                android:id="@+id/frequencyLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Center Frequency: 1000 Hz"
+                android:textSize="14sp"
+                android:layout_marginBottom="8dp" />
+
+            <SeekBar
+                android:id="@+id/frequencySeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progress="26"
+                android:enabled="false"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Q Factor Control -->
+            <TextView
+                android:id="@+id/qLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Q Factor: 1.0"
+                android:textSize="14sp"
+                android:layout_marginBottom="8dp" />
+
+            <SeekBar
+                android:id="@+id/qSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="45"
+                android:progress="5"
+                android:enabled="false" />
+
+            <!-- Filter Info -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="💡 Bandpass filter enhances voice frequencies (300-3400 Hz)"
+                android:textSize="12sp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:lineSpacingMultiplier="1.2" />
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

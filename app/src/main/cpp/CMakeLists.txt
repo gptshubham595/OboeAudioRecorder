@@ -10,11 +10,13 @@ add_library(
         native-lib.cpp
         AudioRecorder.cpp
         AudioPlayer.cpp
+        ${CMAKE_SOURCE_DIR}/filter/BiquadFilter.cpp
 )
 
 # Include headers
 include_directories(
         ${CMAKE_SOURCE_DIR}/oboe/include
+        ${CMAKE_SOURCE_DIR/filter}
         ${CMAKE_SOURCE_DIR}
 )
 
