@@ -7,16 +7,17 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 AudioRecorder::AudioRecorder()
-        : mEchoCanceller(48000), // Initialize with default sample rate
-          mNoiseReduction(5) {   // 5-sample smoothing window
+        : mEchoCanceller(48000),
+          mNoiseReduction(5),    // 5-sample smoothing window
+          mPlaybackSuppressor(48000) {
 
-    oboe::AudioStreamBuilder builder;
-    builder.setDirection(oboe::Direction::Input);
-    std::shared_ptr<oboe::AudioStream> testStream;
-    if (builder.openStream(testStream) == oboe::Result::OK) {
-        mSampleRate = testStream->getSampleRate();
-        mChannelCount = testStream->getChannelCount();
-        testStream->close();
+    oboe::AudioStreamBuilder recordingBuilder;
+    recordingBuilder.setDirection(oboe::Direction::Input);
+    std::shared_ptr<oboe::AudioStream> recordingStream;
+    if (recordingBuilder.openStream(recordingStream) == oboe::Result::OK) {
+        mSampleRate = recordingStream->getSampleRate();
+        mChannelCount = recordingStream->getChannelCount();
+        recordingStream->close();
     }
     LOGD("Recorder initialized. Sample Rate: %d, Channels: %d", mSampleRate, mChannelCount);
 
@@ -37,11 +38,36 @@ AudioRecorder::AudioRecorder()
     // Initialize echo canceller
     mEchoCanceller.setEchoDelay(50.0f);
     mEchoCanceller.setSuppressionAmount(0.7f);
+    mPlaybackSuppressor.setAggressiveness(0.8f);
+}
+
+void AudioRecorder::setPlaybackSuppressorEnabled(bool enabled) {
+    mPlaybackSuppressorEnabled = enabled;
+    if (enabled) {
+        mPlaybackSuppressor.reset();
+        LOGD("Playback suppressor enabled");
+    } else {
+        LOGD("Playback suppressor disabled");
+    }
+}
+
+void AudioRecorder::configurePlaybackSuppressor(float aggressiveness) {
+    mPlaybackSuppressor.setAggressiveness(aggressiveness);
 }
 
 void AudioRecorder::setStoragePath(const char *path) {
     mFilePath = path;
     LOGD("Set recording path to: %s", mFilePath.c_str());
+}
+
+void AudioRecorder::setAudioSource(oboe::InputPreset preset) {
+    mInputPreset = preset;
+    LOGD("Audio source set to: %d", static_cast<int>(preset));
+}
+
+void AudioRecorder::setAndroidAECEnabled(bool enabled) {
+    mAndroidAECEnabled = enabled;
+    LOGD("Android AEC set to: %s", enabled ? "ENABLED" : "DISABLED");
 }
 
 // Bandpass filter controls
@@ -160,6 +186,7 @@ oboe::Result AudioRecorder::startRecording() {
     if (mNoiseGateEnabled) mNoiseGate.reset();
     if (mNoiseReductionEnabled) mNoiseReduction.reset();
     if (mEchoCancellerEnabled) mEchoCanceller.reset();
+    if (mPlaybackSuppressorEnabled) mPlaybackSuppressor.reset();  // NEW: Add this line
 
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Input)
@@ -168,6 +195,9 @@ oboe::Result AudioRecorder::startRecording() {
             ->setFormat(oboe::AudioFormat::I16)
             ->setChannelCount(mChannelCount)
             ->setSampleRate(mSampleRate)
+            ->setInputPreset(mInputPreset)
+            ->setUsage(oboe::Usage::VoiceCommunication)  // NEW: Explicitly set usage
+            ->setContentType(oboe::ContentType::Speech)   // NEW: Mark as speech content
             ->setDataCallback(this);
 
     oboe::Result result = builder.openStream(mRecordingStream);
@@ -194,6 +224,8 @@ oboe::Result AudioRecorder::startRecording() {
         mAudioFile.close();
     } else {
         LOGD("Recording started with processing chain:");
+        LOGD("  InputPreset: %d, Usage: VoiceCommunication, Content: Speech",
+             static_cast<int>(mInputPreset));
         LOGD("  Bandpass: %s, HighShelf: %s, Peaking: %s",
              mBandpassEnabled ? "ON" : "OFF",
              mHighShelfEnabled ? "ON" : "OFF",
@@ -232,7 +264,9 @@ AudioRecorder::onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int3
 
     // Check if any processing is enabled
     bool anyProcessingEnabled = mBandpassEnabled || mHighShelfEnabled || mPeakingEnabled ||
-                                mNoiseGateEnabled || mNoiseReductionEnabled || mEchoCancellerEnabled;
+                                mNoiseGateEnabled || mNoiseReductionEnabled ||
+                                mEchoCancellerEnabled || mPlaybackSuppressorEnabled;  // NEW: Added
+
 
     if (anyProcessingEnabled) {
         std::vector<int16_t> processedData(numSamples);
@@ -242,6 +276,12 @@ AudioRecorder::onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int3
             float sample = static_cast<float>(inputData[i]) / 32768.0f;
 
             // Apply processing chain in order
+
+            // 1. Playback suppressor (NEW: Add as first software processing step)
+            //    This acts as a fallback if Android AEC doesn't work
+            if (mPlaybackSuppressorEnabled) {
+                sample = mPlaybackSuppressor.process(sample);
+            }
 
             // 1. Echo cancellation (first, to remove feedback)
             if (mEchoCancellerEnabled) {

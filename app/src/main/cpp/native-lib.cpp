@@ -23,6 +23,42 @@ Java_com_example_oboesample_AudioEngine_setRecordingPath(JNIEnv *env, jobject, j
 }
 
 JNIEXPORT void JNICALL
+Java_com_example_oboesample_AudioEngine_setAudioSource(JNIEnv *env, jobject, jint sourceType) {
+    oboe::InputPreset preset;
+    switch (sourceType) {
+        case 0:
+            preset = oboe::InputPreset::Generic;
+            break;
+        case 1:
+            preset = oboe::InputPreset::Camcorder;
+            break;
+        case 2:
+            preset = oboe::InputPreset::VoiceRecognition;
+            break;
+        case 3:
+            preset = oboe::InputPreset::VoiceCommunication;
+            break;
+        case 4:
+            preset = oboe::InputPreset::Unprocessed;
+            break;
+        case 5:
+            preset = oboe::InputPreset::VoicePerformance;
+            break;
+        default:
+            preset = oboe::InputPreset::VoiceCommunication;
+            break;
+    }
+    sRecorder.setAudioSource(preset);
+    LOGD("Audio source set to: %d", sourceType);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_oboesample_AudioEngine_setAndroidAECEnabled(JNIEnv *env, jobject, jboolean enabled) {
+    sRecorder.setAndroidAECEnabled(enabled);
+    LOGD("Android AEC set to: %s", enabled ? "ENABLED" : "DISABLED");
+}
+
+JNIEXPORT void JNICALL
 Java_com_example_oboesample_AudioEngine_startRecording(JNIEnv *env, jobject) {
     sRecorder.startRecording();
 }
@@ -121,9 +157,22 @@ Java_com_example_oboesample_AudioEngine_setEchoCancellerEnabled(JNIEnv *env, job
     sRecorder.setEchoCancellerEnabled(enabled);
 }
 
-[[maybe_unused]] JNIEXPORT void JNICALL
+JNIEXPORT void JNICALL
 Java_com_example_oboesample_AudioEngine_configureEchoCanceller(JNIEnv *env, jobject, jfloat delayMs,
                                                                jfloat suppressionAmount) {
     sRecorder.configureEchoCanceller(delayMs, suppressionAmount);
+}
+
+// Playback suppressor (NEW)
+JNIEXPORT void JNICALL
+Java_com_example_oboesample_AudioEngine_setPlaybackSuppressorEnabled(JNIEnv *env, jobject,
+                                                                     jboolean enabled) {
+    sRecorder.setPlaybackSuppressorEnabled(enabled);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_oboesample_AudioEngine_configurePlaybackSuppressor(JNIEnv *env, jobject,
+                                                                    jfloat aggressiveness) {
+    sRecorder.configurePlaybackSuppressor(aggressiveness);
 }
 }

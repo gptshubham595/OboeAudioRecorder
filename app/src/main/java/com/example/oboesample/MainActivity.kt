@@ -1,10 +1,17 @@
 package com.example.oboesample
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.media.audiofx.AcousticEchoCanceler
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.widget.SeekBar
 import android.widget.Toast
@@ -17,6 +24,8 @@ import java.io.File
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var audioManager: AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     private val RECORDING_FILE_NAME = "recording.pcm"
     private val RECORD_AUDIO_PERMISSION_REQUEST_CODE = 101
@@ -48,8 +57,27 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Initialize AudioManager
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val sessionId = audioManager.generateAudioSessionId()
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+
+        val isAecAvailable = AcousticEchoCanceler.isAvailable()
+        if(isAecAvailable) {
+            val acousticEchoCanceler = AcousticEchoCanceler.create(sessionId)
+            acousticEchoCanceler.enabled = true //THIS ENABLED THE AEC
+
+            if (acousticEchoCanceler != null)
+                Log.e("MainActivity", "AEC STATUS:  ${acousticEchoCanceler.enabled}")
+            else
+                Log.e("MainActivity", "AEC  IS NULL")
+        }
+
         val recordingFilePath = filesDir.absolutePath + File.separator + RECORDING_FILE_NAME
         AudioEngine.setRecordingPath(recordingFilePath)
+
+        // Set audio source to VOICE_COMMUNICATION to avoid recording system sounds
+        AudioEngine.setAudioSource(AudioEngine.SOURCE_VOICE_COMMUNICATION)
 
         // Initialize with default configurations
         initializeAudioProcessing()
@@ -60,6 +88,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initializeAudioProcessing() {
+
+        //This is the line that enables AEC, when MODE is set
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+
+        // CRITICAL: Enable Android's hardware Acoustic Echo Canceler
+        AudioEngine.setAndroidAECEnabled(true)
+
+        // Enable Playback Suppressor as fallback (in case Android AEC doesn't work)
+        AudioEngine.setPlaybackSuppressorEnabled(true)
+        AudioEngine.configurePlaybackSuppressor(0.8f) // 0.0 to 1.0, higher = more aggressive
+
         // Configure all processing modules with default values
         AudioEngine.configureBandpassFilter(1500f, 1.2f)
         AudioEngine.configureHighShelfFilter(8000f, 0.7f, 3.0f)
@@ -67,6 +106,65 @@ class MainActivity : AppCompatActivity() {
         AudioEngine.configureNoiseGate(-40f, 4.0f, 5.0f, 50.0f)
         AudioEngine.configureNoiseReduction(0.5f)
         AudioEngine.configureEchoCanceller(50.0f, 0.7f)
+    }
+
+    private fun requestAudioFocus(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+
+            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+                .setAudioAttributes(audioAttributes)
+                .setAcceptsDelayedFocusGain(false)
+                .setWillPauseWhenDucked(false)
+                .setOnAudioFocusChangeListener { focusChange ->
+                    when (focusChange) {
+                        AudioManager.AUDIOFOCUS_LOSS,
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                            // Lost focus, stop recording
+                            if (isRecording) {
+                                stopRecording()
+                                showToast("Recording stopped due to audio focus loss")
+                            }
+                        }
+                    }
+                }
+                .build()
+
+            val result = audioManager.requestAudioFocus(audioFocusRequest!!)
+            result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            val result = audioManager.requestAudioFocus(
+                { focusChange ->
+                    when (focusChange) {
+                        AudioManager.AUDIOFOCUS_LOSS,
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                            if (isRecording) {
+                                stopRecording()
+                                showToast("Recording stopped due to audio focus loss")
+                            }
+                        }
+                    }
+                },
+                AudioManager.STREAM_VOICE_CALL,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
+            )
+            result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let {
+                audioManager.abandonAudioFocusRequest(it)
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
+        }
     }
 
     private fun setupListeners() {
@@ -249,12 +347,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startRecording() {
+        // Request audio focus before starting
+        if (!requestAudioFocus()) {
+            showToast("Failed to gain audio focus. Recording may capture system sounds.")
+        }
+
+        // Set audio mode to communication
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+
         AudioEngine.startRecording()
         setUiState(State.RECORDING)
     }
 
     private fun stopRecording() {
         AudioEngine.stopRecording()
+
+        // Restore normal audio mode
+        audioManager.mode = AudioManager.MODE_NORMAL
+
+        // Abandon audio focus
+        abandonAudioFocus()
+
         setUiState(State.RECORDED)
     }
 
@@ -344,5 +457,10 @@ class MainActivity : AppCompatActivity() {
         super.onStop()
         if (isRecording) stopRecording()
         if (isPlaying) stopPlayback()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        abandonAudioFocus()
     }
 }

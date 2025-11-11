@@ -14,6 +14,7 @@ add_library(
         ${CMAKE_SOURCE_DIR}/filter/NoiseGate.cpp
         ${CMAKE_SOURCE_DIR}/filter/NoiseReduction.cpp
         ${CMAKE_SOURCE_DIR}/filter/EchoCanceller.cpp
+        ${CMAKE_SOURCE_DIR}/filter/PlaybackSuppressor.cpp
 )
 
 # Include headers

@@ -9,6 +9,7 @@
 #include "filter/NoiseGate.h"
 #include "filter/NoiseReduction.h"
 #include "filter/EchoCanceller.h"
+#include "filter/PlaybackSuppressor.h"  // NEW: Add this
 
 class AudioRecorder : public oboe::AudioStreamDataCallback {
 public:
@@ -18,6 +19,16 @@ public:
 
     oboe::Result startRecording();
     void stopRecording();
+
+    // Set audio source (call this before recording)
+    void setAudioSource(oboe::InputPreset preset);
+
+    // Enable/disable Android's built-in echo cancellation
+    void setAndroidAECEnabled(bool enabled);
+
+    // NEW: Enable/disable playback suppressor (fallback if Android AEC doesn't work)
+    void setPlaybackSuppressorEnabled(bool enabled);
+    void configurePlaybackSuppressor(float aggressiveness);
 
     oboe::DataCallbackResult
     onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int32_t numFrames) override;
@@ -53,6 +64,12 @@ private:
     std::fstream mAudioFile;
     std::string mFilePath;
 
+    // Audio source preset
+    oboe::InputPreset mInputPreset = oboe::InputPreset::VoiceCommunication;
+
+    // Flag for Android AEC
+    bool mAndroidAECEnabled = true;
+
     // Processing modules
     BiquadFilter mBandpassFilter;
     BiquadFilter mHighShelfFilter;
@@ -60,6 +77,7 @@ private:
     NoiseGate mNoiseGate;
     NoiseReduction mNoiseReduction;
     EchoCanceller mEchoCanceller;
+    PlaybackSuppressor mPlaybackSuppressor;  // NEW: Add this
 
     // Enable flags
     bool mBandpassEnabled = false;
@@ -68,6 +86,7 @@ private:
     bool mNoiseGateEnabled = false;
     bool mNoiseReductionEnabled = false;
     bool mEchoCancellerEnabled = false;
+    bool mPlaybackSuppressorEnabled = false;  // NEW: Add this
 };
 
 #endif //OBOESAMPLE_AUDIORECORDER_H
