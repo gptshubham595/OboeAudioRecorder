@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -20,22 +21,24 @@ class MainActivity : AppCompatActivity() {
     private val RECORDING_FILE_NAME = "recording.pcm"
     private val RECORD_AUDIO_PERMISSION_REQUEST_CODE = 101
 
-    // Filter parameters
-    private var currentFrequency = 1000f
-    private var currentQ = 1.0f
-
-    // Timer logic
     private val handler = Handler(Looper.getMainLooper())
     private var secondsElapsed = 0
     private var isRecording = false
     private var isPlaying = false
+
+    // Processing parameters
+    private var noiseGateThreshold = -40f
+    private var noiseReductionAmount = 0.5f
+    private var bandpassCenterFreq = 1500f
+
+    private var advancedExpanded = false
 
     private val timerRunnable: Runnable = object : Runnable {
         override fun run() {
             if (isRecording || isPlaying) {
                 secondsElapsed++
                 updateTimerDisplay()
-                handler.postDelayed(this, 1000) // Run again after 1 second
+                handler.postDelayed(this, 1000)
             }
         }
     }
@@ -47,100 +50,181 @@ class MainActivity : AppCompatActivity() {
 
         val recordingFilePath = filesDir.absolutePath + File.separator + RECORDING_FILE_NAME
         AudioEngine.setRecordingPath(recordingFilePath)
-        // Configure filter once at startup
-        AudioEngine.configureBandpassFilter(1000f, 1.0f)
-        AudioEngine.setFilterEnabled(true) // Enable it permanently
 
+        // Initialize with default configurations
+        initializeAudioProcessing()
 
-        // Request permissions if not granted
         checkAndRequestPermissions()
-
-        // Set up button listeners
         setupListeners()
-
-        // Initial state
         setUiState(State.READY)
     }
 
+    private fun initializeAudioProcessing() {
+        // Configure all processing modules with default values
+        AudioEngine.configureBandpassFilter(1500f, 1.2f)
+        AudioEngine.configureHighShelfFilter(8000f, 0.7f, 3.0f)
+        AudioEngine.configurePeakingFilter(3000f, 1.0f, 6.0f)
+        AudioEngine.configureNoiseGate(-40f, 4.0f, 5.0f, 50.0f)
+        AudioEngine.configureNoiseReduction(0.5f)
+        AudioEngine.configureEchoCanceller(50.0f, 0.7f)
+    }
+
     private fun setupListeners() {
+        // Recording controls
         binding.recordButton.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.RECORD_AUDIO
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED) {
                 startRecording()
             } else {
-                Toast.makeText(this, "Permission required to record audio.", Toast.LENGTH_SHORT)
-                    .show()
+                Toast.makeText(this, "Permission required to record audio.", Toast.LENGTH_SHORT).show()
                 checkAndRequestPermissions()
             }
         }
 
-        binding.stopRecordButton.setOnClickListener {
-            stopRecording()
+        binding.stopRecordButton.setOnClickListener { stopRecording() }
+        binding.playButton.setOnClickListener { startPlayback() }
+        binding.stopPlayButton.setOnClickListener { stopPlayback() }
+
+        // Preset buttons
+        binding.presetVoiceButton.setOnClickListener { applyVoiceClearPreset() }
+        binding.presetPodcastButton.setOnClickListener { applyPodcastProPreset() }
+        binding.presetStudioButton.setOnClickListener { applyStudioQualityPreset() }
+
+        // Master switches
+        binding.echoCancellerSwitch.setOnCheckedChangeListener { _, isChecked ->
+            AudioEngine.setEchoCancellerEnabled(isChecked)
+            showToast("Echo Cancellation: ${if (isChecked) "ON" else "OFF"}")
         }
 
-        binding.playButton.setOnClickListener {
-            startPlayback()
+        binding.noiseReductionSwitch.setOnCheckedChangeListener { _, isChecked ->
+            AudioEngine.setNoiseReductionEnabled(isChecked)
+            binding.noiseReductionSeekBar.isEnabled = isChecked
+            showToast("Noise Reduction: ${if (isChecked) "ON" else "OFF"}")
         }
 
-        binding.stopPlayButton.setOnClickListener {
-            stopPlayback()
+        binding.noiseGateSwitch.setOnCheckedChangeListener { _, isChecked ->
+            AudioEngine.setNoiseGateEnabled(isChecked)
+            binding.noiseGateSeekBar.isEnabled = isChecked
+            showToast("Noise Gate: ${if (isChecked) "ON" else "OFF"}")
         }
 
-        binding.filterSwitch.setOnCheckedChangeListener { _, isChecked ->
-            AudioEngine.setFilterEnabled(isChecked)
-            binding.frequencySeekBar.isEnabled = isChecked
-            binding.qSeekBar.isEnabled = isChecked
-
-            val message = if (isChecked) {
-                "Filter enabled: ${currentFrequency.toInt()} Hz, Q=${String.format("%.1f", currentQ)}"
-            } else {
-                "Filter disabled"
-            }
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        binding.bandpassSwitch.setOnCheckedChangeListener { _, isChecked ->
+            AudioEngine.setBandpassFilterEnabled(isChecked)
+            binding.bandpassFreqSeekBar.isEnabled = isChecked
+            showToast("Voice Filter: ${if (isChecked) "ON" else "OFF"}")
         }
 
-        // Frequency SeekBar (300 Hz to 3000 Hz)
-        binding.frequencySeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.peakingSwitch.setOnCheckedChangeListener { _, isChecked ->
+            AudioEngine.setPeakingFilterEnabled(isChecked)
+            showToast("Presence Boost: ${if (isChecked) "ON" else "OFF"}")
+        }
+
+        binding.highShelfSwitch.setOnCheckedChangeListener { _, isChecked ->
+            AudioEngine.setHighShelfFilterEnabled(isChecked)
+            showToast("Clarity Boost: ${if (isChecked) "ON" else "OFF"}")
+        }
+
+        // Advanced settings expand/collapse
+        binding.advancedHeader.setOnClickListener {
+            advancedExpanded = !advancedExpanded
+            binding.advancedContent.visibility = if (advancedExpanded) View.VISIBLE else View.GONE
+            binding.advancedExpandIcon.text = if (advancedExpanded) "▲" else "▼"
+        }
+
+        // Advanced parameter controls
+        setupAdvancedControls()
+    }
+
+    private fun setupAdvancedControls() {
+        // Noise Gate Threshold (-60 to 0 dB)
+        binding.noiseGateSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                // Map 0-100 to 300-3000 Hz
-                currentFrequency = 300f + (progress * 27f)
-                updateFilterConfiguration()
-                binding.frequencyLabel.text = "Center Frequency: ${currentFrequency.toInt()} Hz"
+                noiseGateThreshold = -60f + progress
+                AudioEngine.configureNoiseGate(noiseGateThreshold, 4.0f, 5.0f, 50.0f)
+                binding.noiseGateLabel.text = "Noise Gate Threshold: ${noiseGateThreshold.toInt()} dB"
             }
-
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        // Q Factor SeekBar (0.5 to 5.0)
-        binding.qSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        // Noise Reduction Amount (0-100%)
+        binding.noiseReductionSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                // Map 0-45 to 0.5-5.0
-                currentQ = (progress / 10f) + 0.5f
-                updateFilterConfiguration()
-                binding.qLabel.text = "Q Factor: ${String.format("%.1f", currentQ)}"
+                noiseReductionAmount = progress / 100f
+                AudioEngine.configureNoiseReduction(noiseReductionAmount)
+                binding.noiseReductionLabel.text = "Noise Reduction: ${progress}%"
             }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
 
+        // Bandpass Center Frequency (300-3400 Hz for voice)
+        binding.bandpassFreqSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                bandpassCenterFreq = 300f + (progress * 31f) // Maps 0-100 to 300-3400 Hz
+                AudioEngine.configureBandpassFilter(bandpassCenterFreq, 1.2f)
+                binding.bandpassFreqLabel.text = "Voice Center: ${bandpassCenterFreq.toInt()} Hz"
+            }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
     }
 
-    private fun updateFilterConfiguration() {
-        if (binding.filterSwitch.isChecked) {
-            AudioEngine.configureBandpassFilter(currentFrequency, currentQ)
-        }
+    // Preset configurations
+    private fun applyVoiceClearPreset() {
+        // Basic voice enhancement for calls
+        setAllSwitches(echo = true, noiseReduction = true, noiseGate = true,
+            bandpass = true, peaking = false, highShelf = false)
+
+        AudioEngine.configureBandpassFilter(1500f, 1.2f)
+        AudioEngine.configureNoiseGate(-35f, 4.0f, 5.0f, 50.0f)
+        AudioEngine.configureNoiseReduction(0.4f)
+
+        showToast("Preset: Voice Clear")
+    }
+
+    private fun applyPodcastProPreset() {
+        // Professional podcast/broadcast quality
+        setAllSwitches(echo = true, noiseReduction = true, noiseGate = true,
+            bandpass = true, peaking = true, highShelf = true)
+
+        AudioEngine.configureBandpassFilter(1800f, 1.0f)
+        AudioEngine.configurePeakingFilter(3000f, 1.2f, 5.0f)
+        AudioEngine.configureHighShelfFilter(8000f, 0.7f, 3.0f)
+        AudioEngine.configureNoiseGate(-40f, 6.0f, 3.0f, 40.0f)
+        AudioEngine.configureNoiseReduction(0.6f)
+
+        showToast("Preset: Podcast Pro")
+    }
+
+    private fun applyStudioQualityPreset() {
+        // Maximum quality with all processing
+        setAllSwitches(echo = true, noiseReduction = true, noiseGate = true,
+            bandpass = true, peaking = true, highShelf = true)
+
+        AudioEngine.configureBandpassFilter(2000f, 0.9f)
+        AudioEngine.configurePeakingFilter(3500f, 1.0f, 6.0f)
+        AudioEngine.configureHighShelfFilter(10000f, 0.7f, 4.0f)
+        AudioEngine.configureNoiseGate(-45f, 8.0f, 2.0f, 30.0f)
+        AudioEngine.configureNoiseReduction(0.7f)
+        AudioEngine.configureEchoCanceller(40.0f, 0.8f)
+
+        showToast("Preset: Studio Quality")
+    }
+
+    private fun setAllSwitches(echo: Boolean, noiseReduction: Boolean, noiseGate: Boolean,
+                               bandpass: Boolean, peaking: Boolean, highShelf: Boolean) {
+        binding.echoCancellerSwitch.isChecked = echo
+        binding.noiseReductionSwitch.isChecked = noiseReduction
+        binding.noiseGateSwitch.isChecked = noiseGate
+        binding.bandpassSwitch.isChecked = bandpass
+        binding.peakingSwitch.isChecked = peaking
+        binding.highShelfSwitch.isChecked = highShelf
     }
 
     private fun checkAndRequestPermissions() {
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.RECORD_AUDIO
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.RECORD_AUDIO),
@@ -157,21 +241,14 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == RECORD_AUDIO_PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Record permission granted!", Toast.LENGTH_SHORT).show()
+                showToast("Record permission granted!")
             } else {
-                Toast.makeText(
-                    this,
-                    "Record permission denied. Cannot record audio.",
-                    Toast.LENGTH_LONG
-                ).show()
+                showToast("Record permission denied. Cannot record audio.")
             }
         }
     }
 
     private fun startRecording() {
-        AudioEngine.setFilterEnabled(true)
-        AudioEngine.configureBandpassFilter(1000f, 1.0f) // 1000 Hz center, Q=1.0
-
         AudioEngine.startRecording()
         setUiState(State.RECORDING)
     }
@@ -191,8 +268,6 @@ class MainActivity : AppCompatActivity() {
         setUiState(State.RECORDED)
     }
 
-    // --- UI and Timer Management ---
-
     private enum class State { READY, RECORDING, RECORDED, PLAYING }
 
     private fun setUiState(state: State) {
@@ -205,7 +280,6 @@ class MainActivity : AppCompatActivity() {
                 binding.playButton.isEnabled = false
                 binding.stopPlayButton.isEnabled = false
             }
-
             State.RECORDING -> {
                 startTimer()
                 binding.recordButton.isEnabled = false
@@ -213,17 +287,14 @@ class MainActivity : AppCompatActivity() {
                 binding.playButton.isEnabled = false
                 binding.stopPlayButton.isEnabled = false
             }
-
             State.RECORDED -> {
                 stopTimer()
-                // Update status to show the length of the recording
                 binding.statusTextView.text = getString(R.string.status_ready)
                 binding.recordButton.isEnabled = true
                 binding.stopRecordButton.isEnabled = false
-                binding.playButton.isEnabled = true // Playback is possible now
+                binding.playButton.isEnabled = true
                 binding.stopPlayButton.isEnabled = false
             }
-
             State.PLAYING -> {
                 startTimer()
                 binding.recordButton.isEnabled = false
@@ -236,8 +307,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun startTimer() {
         secondsElapsed = 0
-        isRecording = if (binding.stopRecordButton.isEnabled) true else false
-        isPlaying = if (binding.stopPlayButton.isEnabled) true else false
+        isRecording = binding.stopRecordButton.isEnabled
+        isPlaying = binding.stopPlayButton.isEnabled
         handler.post(timerRunnable)
     }
 
@@ -257,19 +328,20 @@ class MainActivity : AppCompatActivity() {
         val seconds = secondsElapsed % 60
         val time = String.format("%02d:%02d", minutes, seconds)
 
-        val statusText = if (isRecording) {
-            getString(R.string.status_recording, time)
-        } else if (isPlaying) {
-            getString(R.string.status_playing, time)
-        } else {
-            getString(R.string.status_ready)
+        val statusText = when {
+            isRecording -> getString(R.string.status_recording, time)
+            isPlaying -> getString(R.string.status_playing, time)
+            else -> getString(R.string.status_ready)
         }
         binding.statusTextView.text = statusText
     }
 
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
     override fun onStop() {
         super.onStop()
-        // Stop all native audio operations when the app goes into the background
         if (isRecording) stopRecording()
         if (isPlaying) stopPlayback()
     }

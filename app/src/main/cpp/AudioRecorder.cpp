@@ -6,10 +6,13 @@
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-AudioRecorder::AudioRecorder() {
+AudioRecorder::AudioRecorder()
+        : mEchoCanceller(48000), // Initialize with default sample rate
+          mNoiseReduction(5) {   // 5-sample smoothing window
+
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Input);
-    std::shared_ptr <oboe::AudioStream> testStream;
+    std::shared_ptr<oboe::AudioStream> testStream;
     if (builder.openStream(testStream) == oboe::Result::OK) {
         mSampleRate = testStream->getSampleRate();
         mChannelCount = testStream->getChannelCount();
@@ -17,9 +20,23 @@ AudioRecorder::AudioRecorder() {
     }
     LOGD("Recorder initialized. Sample Rate: %d, Channels: %d", mSampleRate, mChannelCount);
 
-    // Initialize filter with default bandpass settings
-    // These values can be adjusted via configureBandpassFilter()
-    mFilter.setBandpass(mSampleRate, 1000.0f, 1.0f);
+    // Initialize filters with default values
+    mBandpassFilter.setBandpass(mSampleRate, 1000.0f, 1.0f);
+    mHighShelfFilter.setHighShelf(mSampleRate, 8000.0f, 0.7f, 3.0f);
+    mPeakingFilter.setPeaking(mSampleRate, 3000.0f, 1.0f, 6.0f);
+
+    // Initialize noise gate
+    mNoiseGate.setThreshold(-40.0f);  // -40 dB
+    mNoiseGate.setRatio(4.0f);        // 4:1 ratio
+    mNoiseGate.setAttack(5.0f, mSampleRate);   // 5ms attack
+    mNoiseGate.setRelease(50.0f, mSampleRate); // 50ms release
+
+    // Initialize noise reduction
+    mNoiseReduction.setReductionAmount(0.5f);
+
+    // Initialize echo canceller
+    mEchoCanceller.setEchoDelay(50.0f);
+    mEchoCanceller.setSuppressionAmount(0.7f);
 }
 
 void AudioRecorder::setStoragePath(const char *path) {
@@ -27,29 +44,108 @@ void AudioRecorder::setStoragePath(const char *path) {
     LOGD("Set recording path to: %s", mFilePath.c_str());
 }
 
-void AudioRecorder::setFilterEnabled(bool enabled) {
-    mFilterEnabled = enabled;
+// Bandpass filter controls
+void AudioRecorder::setBandpassFilterEnabled(bool enabled) {
+    mBandpassEnabled = enabled;
     if (enabled) {
-        mFilter.reset(); // Reset filter state when enabling
-        LOGD("Filter enabled");
+        mBandpassFilter.reset();
+        LOGD("Bandpass filter enabled");
     } else {
-        LOGD("Filter disabled");
+        LOGD("Bandpass filter disabled");
     }
 }
 
 void AudioRecorder::configureBandpassFilter(float centerFreq, float Q) {
-    mFilter.setBandpass(mSampleRate, centerFreq, Q);
-    LOGD("Bandpass filter configured: Center=%.1f Hz, Q=%.2f", centerFreq, Q);
+    mBandpassFilter.setBandpass(mSampleRate, centerFreq, Q);
+}
+
+// High shelf filter controls
+void AudioRecorder::setHighShelfFilterEnabled(bool enabled) {
+    mHighShelfEnabled = enabled;
+    if (enabled) {
+        mHighShelfFilter.reset();
+        LOGD("High shelf filter enabled");
+    } else {
+        LOGD("High shelf filter disabled");
+    }
+}
+
+void AudioRecorder::configureHighShelfFilter(float centerFreq, float Q, float gainDb) {
+    mHighShelfFilter.setHighShelf(mSampleRate, centerFreq, Q, gainDb);
+}
+
+// Peaking filter controls
+void AudioRecorder::setPeakingFilterEnabled(bool enabled) {
+    mPeakingEnabled = enabled;
+    if (enabled) {
+        mPeakingFilter.reset();
+        LOGD("Peaking filter enabled");
+    } else {
+        LOGD("Peaking filter disabled");
+    }
+}
+
+void AudioRecorder::configurePeakingFilter(float centerFreq, float Q, float gainDb) {
+    mPeakingFilter.setPeaking(mSampleRate, centerFreq, Q, gainDb);
+}
+
+// Noise gate controls
+void AudioRecorder::setNoiseGateEnabled(bool enabled) {
+    mNoiseGateEnabled = enabled;
+    if (enabled) {
+        mNoiseGate.reset();
+        LOGD("Noise gate enabled");
+    } else {
+        LOGD("Noise gate disabled");
+    }
+}
+
+void AudioRecorder::configureNoiseGate(float thresholdDb, float ratio, float attackMs, float releaseMs) {
+    mNoiseGate.setThreshold(thresholdDb);
+    mNoiseGate.setRatio(ratio);
+    mNoiseGate.setAttack(attackMs, mSampleRate);
+    mNoiseGate.setRelease(releaseMs, mSampleRate);
+}
+
+// Noise reduction controls
+void AudioRecorder::setNoiseReductionEnabled(bool enabled) {
+    mNoiseReductionEnabled = enabled;
+    if (enabled) {
+        mNoiseReduction.reset();
+        LOGD("Noise reduction enabled");
+    } else {
+        LOGD("Noise reduction disabled");
+    }
+}
+
+void AudioRecorder::configureNoiseReduction(float amount) {
+    mNoiseReduction.setReductionAmount(amount);
+}
+
+// Echo canceller controls
+void AudioRecorder::setEchoCancellerEnabled(bool enabled) {
+    mEchoCancellerEnabled = enabled;
+    if (enabled) {
+        mEchoCanceller.reset();
+        LOGD("Echo canceller enabled");
+    } else {
+        LOGD("Echo canceller disabled");
+    }
+}
+
+void AudioRecorder::configureEchoCanceller(float delayMs, float suppressionAmount) {
+    mEchoCanceller.setEchoDelay(delayMs);
+    mEchoCanceller.setSuppressionAmount(suppressionAmount);
 }
 
 oboe::Result AudioRecorder::startRecording() {
     std::lock_guard<std::mutex> lock(mBufferLock);
 
-    // Open the file stream for writing (binary mode)
     if (mFilePath.empty()) {
         LOGE("Recording path not set!");
         return oboe::Result::ErrorInternal;
     }
+
     mAudioFile.open(mFilePath, std::ios::out | std::ios::binary | std::ios::trunc);
     if (!mAudioFile.is_open()) {
         LOGE("Failed to open file for recording: %s", mFilePath.c_str());
@@ -57,13 +153,14 @@ oboe::Result AudioRecorder::startRecording() {
     }
     LOGD("File opened successfully.");
 
-    // Reset filter state before starting
-    if (mFilterEnabled) {
-        mFilter.reset();
-        LOGD("Filter reset for new recording");
-    }
+    // Reset all processing modules
+    if (mBandpassEnabled) mBandpassFilter.reset();
+    if (mHighShelfEnabled) mHighShelfFilter.reset();
+    if (mPeakingEnabled) mPeakingFilter.reset();
+    if (mNoiseGateEnabled) mNoiseGate.reset();
+    if (mNoiseReductionEnabled) mNoiseReduction.reset();
+    if (mEchoCancellerEnabled) mEchoCanceller.reset();
 
-    // Configure and open the Oboe stream
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Input)
             ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
@@ -80,14 +177,14 @@ oboe::Result AudioRecorder::startRecording() {
         return result;
     }
 
-    // Update sample rate to what the stream actually opened with
     int32_t actualSampleRate = mRecordingStream->getSampleRate();
     if (actualSampleRate != mSampleRate) {
         mSampleRate = actualSampleRate;
-        // Reconfigure filter with actual sample rate
-        if (mFilterEnabled) {
-            configureBandpassFilter(1000.0f, 1.0f); // Use default values
-        }
+        // Reconfigure all filters with actual sample rate
+        if (mBandpassEnabled) configureBandpassFilter(1000.0f, 1.0f);
+        if (mHighShelfEnabled) configureHighShelfFilter(8000.0f, 0.7f, 3.0f);
+        if (mPeakingEnabled) configurePeakingFilter(3000.0f, 1.0f, 6.0f);
+        if (mNoiseGateEnabled) configureNoiseGate(-40.0f, 4.0f, 5.0f, 50.0f);
         LOGD("Updated sample rate to: %d", mSampleRate);
     }
 
@@ -96,8 +193,15 @@ oboe::Result AudioRecorder::startRecording() {
         LOGE("Failed to start recording stream: %s", oboe::convertToText(result));
         mAudioFile.close();
     } else {
-        LOGD("Recording started successfully. Writing to file. Filter: %s",
-             mFilterEnabled ? "ON" : "OFF");
+        LOGD("Recording started with processing chain:");
+        LOGD("  Bandpass: %s, HighShelf: %s, Peaking: %s",
+             mBandpassEnabled ? "ON" : "OFF",
+             mHighShelfEnabled ? "ON" : "OFF",
+             mPeakingEnabled ? "ON" : "OFF");
+        LOGD("  NoiseGate: %s, NoiseReduction: %s, Echo: %s",
+             mNoiseGateEnabled ? "ON" : "OFF",
+             mNoiseReductionEnabled ? "ON" : "OFF",
+             mEchoCancellerEnabled ? "ON" : "OFF");
     }
     return result;
 }
@@ -110,7 +214,6 @@ void AudioRecorder::stopRecording() {
         LOGD("Recording stream stopped.");
     }
 
-    // Close the file stream
     if (mAudioFile.is_open()) {
         mAudioFile.close();
         LOGD("Audio file closed.");
@@ -127,28 +230,59 @@ AudioRecorder::onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int3
     auto *inputData = static_cast<int16_t *>(audioData);
     size_t numSamples = numFrames * oboeStream->getChannelCount();
 
-    if (mFilterEnabled) {
-        // Process audio through the filter
-        // Create a temporary buffer for filtered output
-        std::vector<int16_t> filteredData(numSamples);
+    // Check if any processing is enabled
+    bool anyProcessingEnabled = mBandpassEnabled || mHighShelfEnabled || mPeakingEnabled ||
+                                mNoiseGateEnabled || mNoiseReductionEnabled || mEchoCancellerEnabled;
+
+    if (anyProcessingEnabled) {
+        std::vector<int16_t> processedData(numSamples);
 
         for (size_t i = 0; i < numSamples; i++) {
-            // Convert int16_t to float for processing
+            // Convert int16_t to float (-1.0 to 1.0)
             float sample = static_cast<float>(inputData[i]) / 32768.0f;
 
-            // Apply filter
-            float filtered = mFilter.process(sample);
+            // Apply processing chain in order
+
+            // 1. Echo cancellation (first, to remove feedback)
+            if (mEchoCancellerEnabled) {
+                sample = mEchoCanceller.process(sample);
+            }
+
+            // 2. Noise reduction (remove background noise)
+            if (mNoiseReductionEnabled) {
+                sample = mNoiseReduction.process(sample);
+            }
+
+            // 3. Noise gate (cut very low signals)
+            if (mNoiseGateEnabled) {
+                sample = mNoiseGate.process(sample);
+            }
+
+            // 4. Bandpass filter (isolate voice frequencies)
+            if (mBandpassEnabled) {
+                sample = mBandpassFilter.process(sample);
+            }
+
+            // 5. Peaking EQ (boost presence)
+            if (mPeakingEnabled) {
+                sample = mPeakingFilter.process(sample);
+            }
+
+            // 6. High shelf (enhance clarity)
+            if (mHighShelfEnabled) {
+                sample = mHighShelfFilter.process(sample);
+            }
 
             // Convert back to int16_t with clipping
-            filtered = std::max(-1.0f, std::min(1.0f, filtered));
-            filteredData[i] = static_cast<int16_t>(filtered * 32767.0f);
+            sample = std::max(-1.0f, std::min(1.0f, sample));
+            processedData[i] = static_cast<int16_t>(sample * 32767.0f);
         }
 
-        // Write filtered data to file
+        // Write processed data to file
         size_t numBytes = numSamples * sizeof(int16_t);
-        mAudioFile.write(reinterpret_cast<const char *>(filteredData.data()), numBytes);
+        mAudioFile.write(reinterpret_cast<const char *>(processedData.data()), numBytes);
     } else {
-        // Write raw data directly to file (original behavior)
+        // No processing: write raw data directly
         size_t numBytes = numSamples * sizeof(int16_t);
         mAudioFile.write(static_cast<const char *>(audioData), numBytes);
     }

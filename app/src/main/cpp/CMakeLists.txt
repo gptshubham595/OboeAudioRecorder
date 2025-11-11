@@ -11,6 +11,9 @@ add_library(
         AudioRecorder.cpp
         AudioPlayer.cpp
         ${CMAKE_SOURCE_DIR}/filter/BiquadFilter.cpp
+        ${CMAKE_SOURCE_DIR}/filter/NoiseGate.cpp
+        ${CMAKE_SOURCE_DIR}/filter/NoiseReduction.cpp
+        ${CMAKE_SOURCE_DIR}/filter/EchoCanceller.cpp
 )
 
 # Include headers
