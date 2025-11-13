@@ -267,6 +267,8 @@ AudioRecorder::onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int3
                                 mNoiseGateEnabled || mNoiseReductionEnabled ||
                                 mEchoCancellerEnabled || mPlaybackSuppressorEnabled;  // NEW: Added
 
+    // Your gain factor (1.0f = normal, 2.0f = +6dB, 4.0f = +12dB, etc.)
+    const float gain = 2.0f;
 
     if (anyProcessingEnabled) {
         std::vector<int16_t> processedData(numSamples);
@@ -274,6 +276,10 @@ AudioRecorder::onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int3
         for (size_t i = 0; i < numSamples; i++) {
             // Convert int16_t to float (-1.0 to 1.0)
             float sample = static_cast<float>(inputData[i]) / 32768.0f;
+
+            sample *= gain;
+            if (sample > 1.0f) sample = 1.0f;
+            else if (sample < -1.0f) sample = -1.0f;
 
             // Apply processing chain in order
 

@@ -1,7 +1,9 @@
 package com.example.oboesample
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -11,6 +13,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.view.View
 import android.widget.SeekBar
@@ -25,9 +28,24 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var audioManager: AudioManager
+
+    private val TAG = MainActivity::class.java.simpleName
+
+    private var originalMusicVolume = -1
+    private var originalCallVolume = -1
+    private var originalRingVolume = -1
+    private var originalNotificationVolume = -1
+    private var originalSystemVolume = -1
+    private var originalRingerMode = -1
     private var audioFocusRequest: AudioFocusRequest? = null
 
-    private val RECORDING_FILE_NAME = "recording.pcm"
+    private enum class RecordingMode {
+        IDLE,
+        MICROPHONE // Only when in this mode do we want to silence the system volume
+    }
+    private var currentMode= RecordingMode.IDLE
+
+    private val RECORDING_FILE_NAME = "recording.wav"
     private val RECORD_AUDIO_PERMISSION_REQUEST_CODE = 101
 
     private val handler = Handler(Looper.getMainLooper())
@@ -56,7 +74,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
+        requestDoNotDisturbAccess()
         // Initialize AudioManager
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val sessionId = audioManager.generateAudioSessionId()
@@ -106,6 +124,119 @@ class MainActivity : AppCompatActivity() {
         AudioEngine.configureNoiseGate(-40f, 4.0f, 5.0f, 50.0f)
         AudioEngine.configureNoiseReduction(0.5f)
         AudioEngine.configureEchoCanceller(50.0f, 0.7f)
+    }
+
+    // --- NEW: Volume Control Functions ---
+    private fun setSystemVolumeSilent() {
+        if (currentMode != RecordingMode.MICROPHONE) return
+
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // Save current volumes
+        originalMusicVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        originalCallVolume = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
+        originalRingVolume = audioManager.getStreamVolume(AudioManager.STREAM_RING)
+        originalNotificationVolume = audioManager.getStreamVolume(AudioManager.STREAM_NOTIFICATION)
+        originalSystemVolume = audioManager.getStreamVolume(AudioManager.STREAM_SYSTEM)
+        originalRingerMode = audioManager.ringerMode
+
+        // Silence media & call
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, AudioManager.FLAG_REMOVE_SOUND_AND_VIBRATE)
+        audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, 0, AudioManager.FLAG_REMOVE_SOUND_AND_VIBRATE)
+
+        // Try to silence ring & notifications if allowed
+        try {
+            if (notificationManager.isNotificationPolicyAccessGranted) {
+                audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
+                Log.d(TAG, "Phone set to silent mode.")
+            } else {
+                // fallback: just mute ring and notifications manually
+                audioManager.setStreamVolume(AudioManager.STREAM_RING, 0, AudioManager.FLAG_REMOVE_SOUND_AND_VIBRATE)
+                audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, 0, AudioManager.FLAG_REMOVE_SOUND_AND_VIBRATE)
+                audioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, 0, AudioManager.FLAG_REMOVE_SOUND_AND_VIBRATE)
+                Log.w(TAG, "No DND access — manually silenced ring/notification/system streams.")
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Not allowed to change DND state: ${e.message}")
+        }
+
+        Log.d(TAG, "All key audio streams silenced before recording.")
+        Log.d(
+            TAG,
+            "All audio streams silenced before recording. $originalMusicVolume " +
+                    "$originalCallVolume " +
+                    "$originalRingVolume " +
+                    "$originalNotificationVolume " +
+                    "$originalSystemVolume " +
+                    "$originalRingerMode"
+        )
+    }
+
+
+    private fun requestDoNotDisturbAccess() {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (!notificationManager.isNotificationPolicyAccessGranted) {
+            val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+            startActivity(intent)
+        } else {
+            Log.d(TAG, "DND access already granted.")
+        }
+    }
+
+
+    private fun ensureDoNotDisturbPermission() {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (!notificationManager.isNotificationPolicyAccessGranted) {
+            val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+            startActivity(intent)
+        }
+    }
+
+    /**
+     * Restores the original music volume.
+     */
+    private fun restoreSystemVolume() {
+        try {
+            // Restore all streams that were modified
+            if (originalMusicVolume != -1)
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalMusicVolume, 0)
+
+            if (originalCallVolume != -1)
+                audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, originalCallVolume, 0)
+
+            if (originalRingVolume != -1)
+                audioManager.setStreamVolume(AudioManager.STREAM_RING, originalRingVolume, 0)
+
+            if (originalNotificationVolume != -1)
+                audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, originalNotificationVolume, 0)
+
+            if (originalSystemVolume != -1)
+                audioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, originalSystemVolume, 0)
+
+            if (originalRingerMode != -1)
+                audioManager.ringerMode = originalRingerMode
+
+            Log.d(
+                TAG,
+                "All audio streams restored after recording. $originalMusicVolume " +
+                        "$originalCallVolume " +
+                        "$originalRingVolume " +
+                        "$originalNotificationVolume " +
+                        "$originalSystemVolume " +
+                        "$originalRingerMode"
+            )
+
+            // Reset saved values
+            originalMusicVolume = -1
+            originalCallVolume = -1
+            originalRingVolume = -1
+            originalNotificationVolume = -1
+            originalSystemVolume = -1
+            originalRingerMode = -1
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to restore system sounds: ${e.message}", e)
+        }
     }
 
     private fun requestAudioFocus(): Boolean {
@@ -347,28 +478,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startRecording() {
-        // Request audio focus before starting
+        ensureDoNotDisturbPermission()
+
         if (!requestAudioFocus()) {
             showToast("Failed to gain audio focus. Recording may capture system sounds.")
         }
 
         // Set audio mode to communication
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-
+        currentMode = RecordingMode.MICROPHONE
+        // Request audio focus before starting
+        setSystemVolumeSilent()
         AudioEngine.startRecording()
         setUiState(State.RECORDING)
     }
 
     private fun stopRecording() {
         AudioEngine.stopRecording()
-
         // Restore normal audio mode
         audioManager.mode = AudioManager.MODE_NORMAL
 
         // Abandon audio focus
         abandonAudioFocus()
-
         setUiState(State.RECORDED)
+        restoreSystemVolume()
+        currentMode = RecordingMode.IDLE
     }
 
     private fun startPlayback() {
@@ -462,5 +596,6 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         abandonAudioFocus()
+        restoreSystemVolume()
     }
 }
