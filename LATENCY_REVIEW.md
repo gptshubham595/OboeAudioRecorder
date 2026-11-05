@@ -1,3 +1,5 @@
+> Validation update (2026-11-05): the full Android debug build, JVM test, lint, native sanitizer suites, and all four Android emulator instrumentation tests now pass. Earlier build-blocker notes below are historical. See [VALIDATION.md](VALIDATION.md) for current evidence and remaining limits.
+
 # Latency improvements
 
 **Waveform/file update:** See [OSCILLOSCOPE_RECORDING.md](OSCILLOSCOPE_RECORDING.md) for

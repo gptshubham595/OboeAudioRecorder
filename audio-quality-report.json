@@ -88,11 +88,15 @@
   "improvement_score_reason": "No representative recording or listening evaluation; synthetic gain correction does not establish perceptual quality.",
   "validation": {
     "host_regression_checks": "passed with AddressSanitizer and UndefinedBehaviorSanitizer",
-    "android_build": "retried offline; failed before compilation because Android Gradle Plugin dependencies are not cached",
+    "android_build": "passed debug build for arm64-v8a, armeabi-v7a, x86 and x86_64",
     "broadcast_compliance": "not assessed",
     "filter_behavior_checks": "passed with AddressSanitizer and UndefinedBehaviorSanitizer",
-    "static_integration": "XML/string/view-binding checks and all 30 Kotlin/JNI names match; production UI Kotlin compiled against SDK 36 and cached AndroidX with R/binding stand-ins; full configured Android build blocked",
+    "static_integration": "Full configured APK Kotlin, resources, view binding and JNI build passed",
     "async_audio_checks": "passed AddressSanitizer/UndefinedBehaviorSanitizer and ThreadSanitizer queue/file-worker checks",
-    "memory_lifecycle": "Passed ASan/UBSan/TSan worker and native-owner tests; production Kotlin/JNI passed host JVM -Xcheck:jni with stream double; Android recreation test added but not run"
+    "memory_lifecycle": "ASan/UBSan/TSan native-owner and worker tests passed; host production Kotlin/JNI lifecycle checks passed; Android emulator recreation test passed",
+    "android_instrumentation": "4 tests passed on Android 10 / API 29 arm64 emulator: lifecycle, capture/waveform/WAV/playback, export and app context",
+    "lint": "0 errors, 87 warnings",
+    "jvm_tests": "1 existing template test passed",
+    "current_validation_report": "VALIDATION.md"
   }
 }

@@ -42,9 +42,13 @@
   "validation": {
     "asan_ubsan": "passed",
     "thread_sanitizer": "passed for queue/file workers",
-    "android_build": "blocked before compilation by uncached dependencies",
-    "memory_lifecycle": "Passed ASan/UBSan/TSan worker and native-owner tests; production Kotlin/JNI passed host JVM -Xcheck:jni with stream double; Android recreation test added but not run",
-    "waveforms": "ASan/UBSan/TSan snapshot tests and aligned paired WAV tests passed; Kotlin UI compiled with resource stand-ins; device UI/export tests not run"
+    "android_build": "passed debug build for arm64-v8a, armeabi-v7a, x86 and x86_64",
+    "memory_lifecycle": "ASan/UBSan/TSan native-owner and worker tests passed; host production Kotlin/JNI lifecycle checks passed; Android emulator recreation test passed",
+    "waveforms": "Host sanitizer and paired-WAV tests passed; Android emulator capture/snapshot/playback/export-copy tests passed; human UI/provider coverage remains incomplete",
+    "android_instrumentation": "4 tests passed on Android 10 / API 29 arm64 emulator: lifecycle, capture/waveform/WAV/playback, export and app context",
+    "lint": "0 errors, 87 warnings",
+    "jvm_tests": "1 existing template test passed",
+    "current_validation_report": "VALIDATION.md"
   },
   "reviewed_sources": [
     "https://gist.github.com/FOSSforlife/d0975cb7442099f0776cbed1f1a873ac",
