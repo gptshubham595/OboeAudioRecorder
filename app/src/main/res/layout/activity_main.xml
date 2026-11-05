@@ -78,6 +78,115 @@
 
                 </LinearLayout>
 
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/waveformCard"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardCornerRadius="12dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/recordingCard">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/scope_title"
+                    android:textStyle="bold"
+                    android:textSize="18sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/scope_input"
+                    android:layout_marginTop="12dp" />
+                <com.example.oboesample.OscilloscopeView
+                    android:id="@+id/inputOscilloscope"
+                    android:layout_width="match_parent"
+                    android:layout_height="128dp"
+                    android:layout_marginTop="4dp" />
+                <TextView
+                    android:id="@+id/inputLevelsTextView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/scope_output"
+                    android:layout_marginTop="12dp" />
+                <com.example.oboesample.OscilloscopeView
+                    android:id="@+id/outputOscilloscope"
+                    android:layout_width="match_parent"
+                    android:layout_height="128dp"
+                    android:layout_marginTop="4dp" />
+                <TextView
+                    android:id="@+id/outputLevelsTextView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <Button
+                        android:id="@+id/freezeWaveformButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/scope_freeze"
+                        android:textAllCaps="false" />
+                    <Button
+                        android:id="@+id/waveformZoomButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/scope_zoom_initial"
+                        android:textAllCaps="false" />
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/signalQualityTextView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/scope_waiting"
+                    android:accessibilityLiveRegion="polite"
+                    android:textSize="13sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/scope_caption"
+                    android:textSize="12sp"
+                    android:layout_marginTop="8dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/scope_quality_note"
+                    android:textSize="12sp"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/recordingFilesCard"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardCornerRadius="12dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/waveformCard">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -90,7 +199,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginEnd="8dp"
-                        android:text="Play"
+                        android:text="@string/play_output"
                         android:textAllCaps="false"
                         android:enabled="false" />
 
@@ -106,8 +215,55 @@
 
                 </LinearLayout>
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+                    <Button
+                        android:id="@+id/playInputButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/play_input"
+                        android:textAllCaps="false"
+                        android:enabled="false" />
+                </LinearLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <Button
+                        android:id="@+id/saveInputButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:text="@string/save_input"
+                        android:textAllCaps="false"
+                        android:enabled="false" />
+                    <Button
+                        android:id="@+id/saveOutputButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        android:text="@string/save_output"
+                        android:textAllCaps="false"
+                        android:enabled="false" />
+                </LinearLayout>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/recording_storage_note"
+                    android:textSize="12sp"
+                    android:layout_marginTop="8dp" />
+                <TextView
+                    android:id="@+id/exportStatusTextView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:accessibilityLiveRegion="polite"
+                    android:textSize="12sp" />
             </LinearLayout>
-
         </com.google.android.material.card.MaterialCardView>
 
         <!-- Quick Presets -->
@@ -120,7 +276,7 @@
             app:cardElevation="4dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/recordingCard">
+            app:layout_constraintTop_toBottomOf="@id/recordingFilesCard">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -419,7 +575,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:max="60"
-                        android:progress="40"
+                        android:progress="20"
                         android:enabled="false"
                         android:layout_marginBottom="16dp" />
 
@@ -441,6 +597,55 @@
                         android:enabled="false"
                         android:layout_marginBottom="16dp" />
 
+
+                    <TextView
+                        android:id="@+id/noiseFloorLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Noise Floor: -60 dBFS"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="8dp" />
+                    <SeekBar
+                        android:id="@+id/noiseFloorSeekBar"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:max="60"
+                        android:progress="30"
+                        android:enabled="false"
+                        android:layout_marginBottom="16dp" />
+
+                    <TextView
+                        android:id="@+id/peakingGainLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Presence Gain: 6 dB"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="8dp" />
+                    <SeekBar
+                        android:id="@+id/peakingGainSeekBar"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:max="24"
+                        android:progress="18"
+                        android:enabled="false"
+                        android:layout_marginBottom="16dp" />
+
+                    <TextView
+                        android:id="@+id/highShelfGainLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Clarity Gain: 3 dB"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="8dp" />
+                    <SeekBar
+                        android:id="@+id/highShelfGainSeekBar"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:max="24"
+                        android:progress="15"
+                        android:enabled="false"
+                        android:layout_marginBottom="16dp" />
+
                     <!-- Bandpass Center Frequency -->
                     <TextView
                         android:id="@+id/bandpassFreqLabel"
@@ -454,8 +659,8 @@
                         android:id="@+id/bandpassFreqSeekBar"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:max="100"
-                        android:progress="44"
+                        android:max="3100"
+                        android:progress="1200"
                         android:enabled="false"
                         android:layout_marginBottom="16dp" />
 

@@ -1,0 +1,98 @@
+{
+  "analysis_type": "synthetic_dsp_transfer_tests",
+  "input_analysis": {
+    "sample_rate_hz": 48000,
+    "recording_available": false,
+    "probe_types": [
+      "constant-input gate transfer after 2 seconds",
+      "sine-wave RMS frequency response after 1 second warmup"
+    ]
+  },
+  "detected_issues": [
+    {
+      "issue": "Microphone self-subtraction without speaker reference",
+      "status": "fixed by transparent no-reference path"
+    },
+    {
+      "issue": "Moving average removed treble unconditionally",
+      "status": "replaced by configurable spectral attenuation"
+    },
+    {
+      "issue": "Expansion gain discontinuities",
+      "status": "smoothed"
+    },
+    {
+      "issue": "EQ bounds, precision and headroom",
+      "status": "improved"
+    },
+    {
+      "issue": "Preset/slider mismatch",
+      "status": "synchronized and persisted"
+    }
+  ],
+  "processing_applied": [
+    {
+      "component": "EchoCanceller",
+      "change": "Microphone-only pass-through; explicit reference-driven one-path API; hardware session effect tied to switch"
+    },
+    {
+      "component": "NoiseReduction",
+      "change": "Precomputed 128-point overlapping spectral attenuation on a recording worker; configurable floor and stop-time tail drain",
+      "latency_samples": 128
+    },
+    {
+      "component": "NoiseGate",
+      "change": "Bounded dB expansion with separate gain smoothing and denormal/nonfinite protection"
+    },
+    {
+      "component": "Bandpass",
+      "change": "Validated bounded parameters and double-precision coefficients/state"
+    },
+    {
+      "component": "Peaking",
+      "change": "Validated bounded parameters, exact zero-gain bypass, UI gain control and EQ headroom"
+    },
+    {
+      "component": "HighShelf",
+      "change": "Bounded monotonic shelf Q, exact zero-gain bypass, UI gain control and EQ headroom"
+    },
+    {
+      "component": "PlaybackSuppressor",
+      "change": "Sample-rate-aware windows, gain smoothing, invalid-input protection; opt-in default"
+    }
+  ],
+  "before_metrics": {
+    "gate_gain_db_at_minus60_dbfs": -9.7624,
+    "gate_gain_db_at_minus50_dbfs": -6.2464,
+    "gate_gain_db_at_minus20_dbfs": 0.0,
+    "voice_bandpass_gain_db_at_100hz": -25.1083,
+    "voice_bandpass_gain_db_at_8000hz": -16.78,
+    "smoothing_gain_db_at_8000hz": -8.9825
+  },
+  "after_metrics": {
+    "gate_gain_db_at_minus60_dbfs": -59.9992,
+    "gate_gain_db_at_minus50_dbfs": -29.999,
+    "gate_gain_db_at_minus20_dbfs": -0.0001,
+    "voice_bandpass_gain_db_at_100hz": -25.1083,
+    "voice_bandpass_gain_db_at_8000hz": -16.78,
+    "spectral_reduction_gain_db_at_8000hz": -0.0002
+  },
+  "recording_metrics": {
+    "integrated_lufs": null,
+    "true_peak_dbtp": null,
+    "rms_dbfs": null,
+    "snr_db": null,
+    "loudness_range_lu": null
+  },
+  "improvement_score": null,
+  "improvement_score_reason": "No representative recording or listening evaluation; synthetic gain correction does not establish perceptual quality.",
+  "validation": {
+    "host_regression_checks": "passed with AddressSanitizer and UndefinedBehaviorSanitizer",
+    "android_build": "retried offline; failed before compilation because Android Gradle Plugin dependencies are not cached",
+    "broadcast_compliance": "not assessed",
+    "filter_behavior_checks": "passed with AddressSanitizer and UndefinedBehaviorSanitizer",
+    "static_integration": "XML/string/view-binding checks and all 30 Kotlin/JNI names match; production UI Kotlin compiled against SDK 36 and cached AndroidX with R/binding stand-ins; full configured Android build blocked",
+    "async_audio_checks": "passed AddressSanitizer/UndefinedBehaviorSanitizer and ThreadSanitizer queue/file-worker checks",
+    "memory_lifecycle": "Passed ASan/UBSan/TSan worker and native-owner tests; production Kotlin/JNI passed host JVM -Xcheck:jni with stream double; Android recreation test added but not run"
+  }
+}

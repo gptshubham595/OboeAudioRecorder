@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+native_dir="$test_dir/../../main/cpp"
+test_binary=$(mktemp /tmp/oboe-quality-metrics.XXXXXX)
+trap 'rm -f "$test_binary"' EXIT
+c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined \
+    -I"$test_dir" -I"$native_dir" \
+    "$test_dir/AudioQualityMetrics.cpp" "$native_dir/filter/NoiseGate.cpp" \
+    "$native_dir/filter/BiquadFilter.cpp" "$native_dir/filter/NoiseReduction.cpp" \
+    -o "$test_binary"
+"$test_binary"

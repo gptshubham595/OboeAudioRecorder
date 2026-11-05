@@ -1,35 +1,23 @@
-#ifndef OBOESAMPLE_ECHOCANCELLER_H
-#define OBOESAMPLE_ECHOCANCELLER_H
+#pragma once
 
 #include <vector>
-#include <cmath>
+#include <cstddef>
 
-// Simple echo suppression using adaptive filtering
+// Reference-driven single-path adaptive suppressor, not a full multipath acoustic AEC.
+// Without a synchronized playback reference, microphone audio must pass through unchanged.
 class EchoCanceller {
 public:
-    EchoCanceller(int sampleRate);
-
-    // Set echo delay in milliseconds
+    explicit EchoCanceller(int sampleRate);
     void setEchoDelay(float delayMs);
-
-    // Set echo suppression amount (0.0 to 1.0)
     void setSuppressionAmount(float amount);
-
-    // Process a single sample
-    float process(float input);
-
-    // Reset state
+    float process(float input) const;
+    float process(float input, float playbackReference);
     void reset();
-
 private:
-    std::vector<float> mDelayBuffer;
     int mSampleRate;
-    int mDelayInSamples;
-    int mWriteIndex;
-    float mSuppressionAmount;
-
-    // Adaptive filter coefficient
-    float mAdaptiveCoeff;
+    int mDelayInSamples = 0;
+    std::vector<float> mDelayBuffer;
+    size_t mWriteIndex = 0;
+    float mSuppressionAmount = 0.7f;
+    float mAdaptiveCoeff = 0.0f;
 };
-
-#endif //OBOESAMPLE_ECHOCANCELLER_H

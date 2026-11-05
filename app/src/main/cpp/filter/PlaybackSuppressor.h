@@ -43,11 +43,11 @@ private:
     float mPrevInput;
     int mZeroCrossingCount;
 
-    // Previous ZCR value for potential stabilization logic
-    float mPrevZeroCrossing;
-
     // Threshold for energy detection
     float mVoiceThreshold;
+    float mTargetGain = 1.0f;
+    float mGain = 1.0f;
+    float mGainCoeff = 0.0f;
 };
 
 #endif //OBOESAMPLE_PLAYBACKSUPPRESSOR_H

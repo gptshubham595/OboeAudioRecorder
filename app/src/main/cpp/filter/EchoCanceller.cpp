@@ -1,63 +1,48 @@
 #include "EchoCanceller.h"
-#include <android/log.h>
 #include <algorithm>
-
-#define LOG_TAG "EchoCanceller"
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#include <cmath>
 
 EchoCanceller::EchoCanceller(int sampleRate)
-        : mSampleRate(sampleRate),
-          mDelayInSamples(0),
-          mWriteIndex(0),
-          mSuppressionAmount(0.7f),
-          mAdaptiveCoeff(0.5f) {
-    // Default 50ms delay buffer
+        : mSampleRate(std::clamp(sampleRate, 8000, 192000)) {
     setEchoDelay(50.0f);
-    LOGD("EchoCanceller initialized at %d Hz", sampleRate);
 }
 
 void EchoCanceller::setEchoDelay(float delayMs) {
-    mDelayInSamples = static_cast<int>((delayMs / 1000.0f) * mSampleRate);
-    mDelayBuffer.resize(mDelayInSamples, 0.0f);
-    mWriteIndex = 0;
-    LOGD("Echo Delay: %.1f ms (%d samples)", delayMs, mDelayInSamples);
+    delayMs = std::isfinite(delayMs) ? std::clamp(delayMs, 0.0f, 500.0f) : 0.0f;
+    mDelayInSamples = static_cast<int>(delayMs * 0.001f * mSampleRate);
+    mDelayBuffer.assign(static_cast<size_t>(mDelayInSamples) + 1, 0.0f);
+    reset();
 }
 
 void EchoCanceller::setSuppressionAmount(float amount) {
-    mSuppressionAmount = std::max(0.0f, std::min(1.0f, amount));
-    LOGD("Echo Suppression: %.2f", mSuppressionAmount);
+    mSuppressionAmount = std::isfinite(amount) ? std::clamp(amount, 0.0f, 1.0f) : 0.0f;
 }
 
-float EchoCanceller::process(float input) {
-    if (mDelayInSamples == 0) {
-        return input;
+float EchoCanceller::process(float input) const {
+    return std::isfinite(input) ? input : 0.0f;
+}
+
+float EchoCanceller::process(float input, float playbackReference) {
+    if (!std::isfinite(input) || !std::isfinite(playbackReference)) {
+        reset();
+        return std::isfinite(input) ? input : 0.0f;
     }
-
-    // Get delayed sample (estimated echo)
-    int readIndex = (mWriteIndex - mDelayInSamples + mDelayBuffer.size()) % mDelayBuffer.size();
-    float delayedSample = mDelayBuffer[readIndex];
-
-    // Adaptive echo estimation
-    float estimatedEcho = delayedSample * mAdaptiveCoeff;
-
-    // Subtract estimated echo from input
-    float output = input - (estimatedEcho * mSuppressionAmount);
-
-    // Update adaptive coefficient based on correlation
-    // This is a simplified LMS (Least Mean Squares) approach
-    float error = output;
-    mAdaptiveCoeff += 0.001f * error * delayedSample;
-    mAdaptiveCoeff = std::max(-1.0f, std::min(1.0f, mAdaptiveCoeff));
-
-    // Store current input in delay buffer
-    mDelayBuffer[mWriteIndex] = input;
+    mDelayBuffer[mWriteIndex] = playbackReference;
+    const auto readIndex = (mWriteIndex + mDelayBuffer.size() - mDelayInSamples)
+            % mDelayBuffer.size();
+    const float reference = mDelayBuffer[readIndex];
     mWriteIndex = (mWriteIndex + 1) % mDelayBuffer.size();
-
-    return output;
+    const float error = input - mAdaptiveCoeff * reference;
+    // Normalized one-tap adaptation; do not adapt on a silent reference.
+    if (std::abs(reference) > 1e-5f) {
+        mAdaptiveCoeff = std::clamp(mAdaptiveCoeff +
+                0.05f * error * reference / (reference * reference + 1e-6f), -2.0f, 2.0f);
+    }
+    return input - mSuppressionAmount * mAdaptiveCoeff * reference;
 }
 
 void EchoCanceller::reset() {
     std::fill(mDelayBuffer.begin(), mDelayBuffer.end(), 0.0f);
     mWriteIndex = 0;
-    mAdaptiveCoeff = 0.5f;
+    mAdaptiveCoeff = 0.0f;
 }

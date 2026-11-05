@@ -2,9 +2,9 @@
 #define OBOESAMPLE_AUDIORECORDER_H
 
 #include <oboe/Oboe.h>
-#include <vector>
-#include <mutex>
-#include <fstream>
+#include "AsyncAudioFile.h"
+#include "WaveformMonitor.h"
+#include <string>
 #include "filter/BiquadFilter.h"
 #include "filter/NoiseGate.h"
 #include "filter/NoiseReduction.h"
@@ -14,11 +14,27 @@
 class AudioRecorder : public oboe::AudioStreamDataCallback {
 public:
     AudioRecorder();
+    ~AudioRecorder() { stopRecording(false); }
+    AudioRecorder(const AudioRecorder&) = delete;
+    AudioRecorder& operator=(const AudioRecorder&) = delete;
+    AudioRecorder(AudioRecorder&&) = delete;
+    AudioRecorder& operator=(AudioRecorder&&) = delete;
+    bool hasOpenStream() const { return bool(mRecordingStream); }
+    std::string latencyDiagnostics() const;
+    uint64_t waveformSnapshot(float* destination) const { return mWaveform.snapshot(destination); }
 
     void setStoragePath(const char *path);
 
     oboe::Result startRecording();
-    void stopRecording();
+    void stopRecording(bool reportDiagnostics = true);
+    bool isRecording() const {
+        if (!mRecordingStream || mWriter.failed()) return false;
+        const auto state = mRecordingStream->getState();
+        return state == oboe::StreamState::Starting || state == oboe::StreamState::Started;
+    }
+    int32_t getSessionId() const {
+        return mRecordingStream ? static_cast<int32_t>(mRecordingStream->getSessionId()) : -1;
+    }
 
     // Set audio source (call this before recording)
     void setAudioSource(oboe::InputPreset preset);
@@ -50,18 +66,20 @@ public:
     // Noise reduction controls
     void setNoiseReductionEnabled(bool enabled);
     void configureNoiseReduction(float amount);
+    void configureNoiseFloor(float noiseFloorDb);
 
     // Echo cancellation controls
     void setEchoCancellerEnabled(bool enabled);
     void configureEchoCanceller(float delayMs, float suppressionAmount);
 
 private:
+    float processSample(float sample, float eqGain);
     std::shared_ptr<oboe::AudioStream> mRecordingStream;
-    std::mutex mBufferLock;
     int32_t mSampleRate = 48000;
     int32_t mChannelCount = 1;
 
-    std::fstream mAudioFile;
+    AudioFileWriter mWriter;
+    WaveformMonitor mWaveform;
     std::string mFilePath;
 
     // Audio source preset
@@ -87,6 +105,8 @@ private:
     bool mNoiseReductionEnabled = false;
     bool mEchoCancellerEnabled = false;
     bool mPlaybackSuppressorEnabled = false;  // NEW: Add this
+    float mPeakingGainDb = 6.0f;
+    float mHighShelfGainDb = 3.0f;
 };
 
 #endif //OBOESAMPLE_AUDIORECORDER_H

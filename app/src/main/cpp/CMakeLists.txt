@@ -10,6 +10,7 @@ add_library(
         native-lib.cpp
         AudioRecorder.cpp
         AudioPlayer.cpp
+        AsyncAudioFile.cpp
         ${CMAKE_SOURCE_DIR}/filter/BiquadFilter.cpp
         ${CMAKE_SOURCE_DIR}/filter/NoiseGate.cpp
         ${CMAKE_SOURCE_DIR}/filter/NoiseReduction.cpp
@@ -18,9 +19,11 @@ add_library(
 )
 
 # Include headers
+target_compile_features(native-lib PRIVATE cxx_std_17)
+
 include_directories(
         ${CMAKE_SOURCE_DIR}/oboe/include
-        ${CMAKE_SOURCE_DIR/filter}
+        ${CMAKE_SOURCE_DIR}/filter
         ${CMAKE_SOURCE_DIR}
 )
 

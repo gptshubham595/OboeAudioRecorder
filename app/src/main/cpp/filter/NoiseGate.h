@@ -11,8 +11,8 @@ public:
     // Configure noise gate parameters
     void setThreshold(float thresholdDb);  // dB level below which signal is attenuated
     void setRatio(float ratio);             // Expansion ratio (e.g., 2:1, 4:1)
-    void setAttack(float attackMs, float sampleRate);   // How fast gate closes
-    void setRelease(float releaseMs, float sampleRate); // How fast gate opens
+    void setAttack(float attackMs, float sampleRate);   // How fast the envelope rises/gate opens
+    void setRelease(float releaseMs, float sampleRate); // How fast the envelope falls/gate closes
 
     // Process a single sample
     float process(float input);
@@ -25,6 +25,7 @@ private:
     float mRatio;          // Expansion ratio
     float mAttackCoeff;    // Attack time coefficient
     float mReleaseCoeff;   // Release time coefficient
+    float mGain = 1.0f;
     float mEnvelope;       // Current envelope level
 
     // Helper to calculate time coefficients

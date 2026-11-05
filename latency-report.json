@@ -1,0 +1,54 @@
+{
+  "measurement_scope": "host algorithmic delay and behavior tests; not device end-to-end latency",
+  "sample_rate_hz": 48000,
+  "spectral_filter": {
+    "before_frames": 256,
+    "after_frames": 128,
+    "before_ms": 5.333333333333333,
+    "after_ms": 2.6666666666666665,
+    "fixed_delay_reduction_percent": 50,
+    "frequency_resolution_hz": 375,
+    "quality_tradeoff": "Shorter window has coarser frequency resolution; real speech/noise listening remains unverified",
+    "saved_file_alignment": "Startup delay trimmed and tail drained; raw and processed WAVs retain equal sample counts on successful stop"
+  },
+  "callbacks": {
+    "recording": "bounded PCM enqueue only; worker processes and writes",
+    "playback": "bounded PCM dequeue and zero-padding only; worker prefetches",
+    "blocking_file_io": false,
+    "dsp_on_recording_callback": false,
+    "locks_or_waits": false,
+    "allocation": false
+  },
+  "storage_queue": {
+    "capacity_frames": 8192,
+    "capacity_bytes": 16384,
+    "worker_max_block_frames": 512,
+    "idle_worker_poll_ms": 1,
+    "queue_capacity_is_not_fixed_signal_delay": true,
+    "capture_overflow_policy": "stop and report failure",
+    "playback_starvation_policy": "silence, preserve remaining sample ordering, count underrun"
+  },
+  "playback_buffer": {
+    "requested_bursts": 2,
+    "actual_buffer_frames": null,
+    "note": "May already equal Oboe default; negotiated device value is not yet measured"
+  },
+  "ui_completion_poll_ms": {
+    "before": 1000,
+    "after": 100
+  },
+  "device_latency_ms": null,
+  "device_xruns": null,
+  "validation": {
+    "asan_ubsan": "passed",
+    "thread_sanitizer": "passed for queue/file workers",
+    "android_build": "blocked before compilation by uncached dependencies",
+    "memory_lifecycle": "Passed ASan/UBSan/TSan worker and native-owner tests; production Kotlin/JNI passed host JVM -Xcheck:jni with stream double; Android recreation test added but not run",
+    "waveforms": "ASan/UBSan/TSan snapshot tests and aligned paired WAV tests passed; Kotlin UI compiled with resource stand-ins; device UI/export tests not run"
+  },
+  "reviewed_sources": [
+    "https://gist.github.com/FOSSforlife/d0975cb7442099f0776cbed1f1a873ac",
+    "https://developer.android.com/games/sdk/oboe/low-latency-audio",
+    "https://google.github.io/oboe/classoboe_1_1_audio_stream.html"
+  ]
+}

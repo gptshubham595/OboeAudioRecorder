@@ -18,13 +18,16 @@ public:
     void reset();
 
 private:
+    void setIdentity();
+
+    // Double-precision coefficients and state reduce error near DC and Nyquist.
     // Biquad coefficients
-    float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
-    float a1 = 0.0f, a2 = 0.0f;
+    double b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
+    double a1 = 0.0f, a2 = 0.0f;
 
     // State variables (Direct Form I)
-    float x1 = 0.0f, x2 = 0.0f; // input history
-    float y1 = 0.0f, y2 = 0.0f; // output history
+    double x1 = 0.0f, x2 = 0.0f; // input history
+    double y1 = 0.0f, y2 = 0.0f; // output history
 };
 
 #endif //OBOESAMPLE_BIQUADFILTER_H
